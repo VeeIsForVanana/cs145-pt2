@@ -22,12 +22,79 @@ from data_sys import DataStatus, DataSystem
 from typing import List, Sequence, Tuple
 from status import ControlStatus, CommStatus, SybilStatus
 
+# this class is a node subsystem that will use data gathered from MasterNode's results to predict the results of future queries without needing to refer to 
+#   actual data sources
+class SybilSystem:
+  
+  record: dict[int, SybilStatus]
+  control: ControlStatus
+  
+  def __init__(self) -> None:
+    
+    # initialize records as GREY
+    self.record = dict([(i, SybilStatus.GREY) for i in range(1, 65535 + 1)])
+    
+  def mark_white(self, id: int):
+    self.record[id] = SybilStatus.WHTE
+    
+  def mark_black(self, id: int):
+    self.record[id] = SybilStatus.BLCK
+    
+  def set_control(self, new_control: ControlStatus):
+    self.control = new_control
+    
+  # interpret the results of a given command on an id
+  def interpret_result(self, controlStatus: ControlStatus, dataStatus: DataStatus, id: int, bound: int | None):
+    return self.interpret_give(id) if self.control == ControlStatus.GIVE else self.interpret_query(id)
+  
+  def interpret_give(self, dataStatus: DataStatus, id: int, bounds: int | None):
+    match DataStatus:
+      
+      # mark the id white
+      case DataStatus.CASE1:
+        self.mark_white(id)
+        
+      # mark [id, bounds] black
+      case DataStatus.CASE2:
+        self.mark_white(bounds)
+        [self.mark_black(i) for i in range(id, bounds)]
+        
+      # mark [id, id + 100] black and mark [bounds + 1, id] black
+      case DataStatus.CASE3:
+        self.mark_white(bounds)
+        [self.mark_black(i) for i in range(id, 100 + 1)]
+        [self.mark_black(i) for i in range(bounds + 1, id)]
+        
+      case DataStatus.FAIL:
+        [self.mark_black(i) for i in range(id, 100 + 1)]
+        [self.mark_black(i) for i in range(id - 100, id)]
+  
+  def interpret_query(self, dataStatus: DataStatus, id: int):
+    match DataStatus:
+      case DataStatus.OK:
+        self.mark_white(id)
+      case DataStatus.FAIL:
+        self.mark_black(id)
+  
+  # predict the results of a given command on a given id (FALSE = not worth trying, do not proceed; TRUE = worth trying, proceed)
+  def predict_id(self, id: int) -> bool:
+    return self.predict_give(id) if self.control == ControlStatus.GIVE else self.predict_query(id)
+  
+  # check if ANY value in the checking range is not black, if so proceed; if not preemptively fail
+  def predict_give(self, id: int) -> bool:
+    return any([self.record[i] != SybilStatus.BLCK for i in range(id - 100, id + 100 + 1)])
+  
+  # check if the id itself is black
+  def predict_query(self, id: int) -> bool:
+    return self.record[id] == SybilStatus.BLCK
+
 
 class MasterNode:
 
   comms: CommSystem
   sources: List[DataSystem]
   control: ControlStatus
+  sybil: SybilSystem
 
   # we assume sources[0] is the master source
   def __init__(self, chan: Channel, sources: List[DataSystem]) -> None:
@@ -192,70 +259,3 @@ class SlaveNode:
           
   def set_control(self, new_control: ControlStatus):
     self.control = new_control
-
-
-# this class is a node subsystem that will use data gathered from MasterNode's results to predict the results of future queries without needing to refer to 
-#   actual data sources
-class SybilSystem:
-  
-  record: dict[int, SybilStatus]
-  control: ControlStatus
-  
-  def __init__(self) -> None:
-    
-    # initialize records as GREY
-    self.record = dict([(i, SybilStatus.GREY) for i in range(1, 65535 + 1)])
-    
-  def mark_white(self, id: int):
-    self.record[id] = SybilStatus.WHTE
-    
-  def mark_black(self, id: int):
-    self.record[id] = SybilStatus.BLCK
-    
-  def set_control(self, new_control: ControlStatus):
-    self.control = new_control
-    
-  # interpret the results of a given command on an id
-  def interpret_result(self, controlStatus: ControlStatus, dataStatus: DataStatus, id: int, bound: int | None):
-    return self.interpret_give(id) if self.control == ControlStatus.GIVE else self.interpret_query(id)
-  
-  def interpret_give(self, dataStatus: DataStatus, id: int, bounds: int | None):
-    match DataStatus:
-      
-      # mark the id white
-      case DataStatus.CASE1:
-        self.mark_white(id)
-        
-      # mark [id, bounds] black
-      case DataStatus.CASE2:
-        self.mark_white(bounds)
-        [self.mark_black(i) for i in range(id, bounds)]
-        
-      # mark [id, id + 100] black and mark [bounds + 1, id] black
-      case DataStatus.CASE3:
-        self.mark_white(bounds)
-        [self.mark_black(i) for i in range(id, 100 + 1)]
-        [self.mark_black(i) for i in range(bounds + 1, id)]
-        
-      case DataStatus.FAIL:
-        [self.mark_black(i) for i in range(id, 100 + 1)]
-        [self.mark_black(i) for i in range(id - 100, id)]
-  
-  def interpret_query(self, dataStatus: DataStatus, id: int):
-    match DataStatus:
-      case DataStatus.OK:
-        self.mark_white(id)
-      case DataStatus.FAIL:
-        self.mark_black(id)
-  
-  # predict the results of a given command on a given id (FALSE = not worth trying, do not proceed; TRUE = worth trying, proceed)
-  def predict_id(self, id: int) -> bool:
-    return self.predict_give(id) if self.control == ControlStatus.GIVE else self.predict_query(id)
-  
-  # check if ANY value in the checking range is not black, if so proceed; if not preemptively fail
-  def predict_give(self, id: int) -> bool:
-    return any([self.record[i] != SybilStatus.BLCK for i in range(id - 100, id + 100 + 1)])
-  
-  # check if the id itself is black
-  def predict_query(self, id: int) -> bool:
-    return self.record[id] == SybilStatus.BLCK
