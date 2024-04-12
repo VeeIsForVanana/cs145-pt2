@@ -100,6 +100,7 @@ class MasterNode:
   def __init__(self, chan: Channel, sources: List[DataSystem]) -> None:
     self.comms = CommSystem(chan, CommStatus.SUB, CommStatus.CMD)
     self.sources = sources
+    self.sybil = SybilSystem()
   
   # this method starts the master node operation loop
   def operate(self):
@@ -109,38 +110,11 @@ class MasterNode:
 
       self.set_control(cmd[0])
       self.comms.set_control(cmd[0])
+      self.sybil.set_control(cmd[0])
       
       print(f"### OPERATION {operation_no}: {cmd} ###", file=sys.stderr)
       
-      result: Tuple = (DataStatus.FAIL, )
-      
-      # check every source, terminate if there's an exact match
-      for source in self.sources:
-        
-        temp = source.find(cmd[1]) if self.control == ControlStatus.GIVE else source.query(cmd[1])
-        
-        # if the result from a slave node was not a FAIL, cache the result in the data since we destroy the original slave data no matter what
-        if source != self.sources[0] and temp[0] != DataStatus.FAIL:
-          if self.control == ControlStatus.GIVE:
-            self.cache_record(temp[1], temp[2])
-          else:
-            self.cache_record(cmd[1], temp[1])
-        
-        print(f"#:{operation_no} source {source} found {temp}")
-        
-        assert isinstance(temp, Tuple)
-        assert isinstance(result, Tuple)
-        
-        # if the temporary result is already OK, accept it and carry on
-        if (temp[0] == DataStatus.CASE1 and self.control == ControlStatus.GIVE) or (temp[0] == DataStatus.OK and self.control == ControlStatus.QUERY):
-          result = temp
-          break
-        
-        # if the temporary result is 'better' than the current result (*both of them must be CASEx results*)
-        if temp[0] in range(30, 35) and result[0] in range(30, 35):
-          result = temp if temp[0].value < result[0].value else result
-        
-        result = self.better_result(result, temp)
+      result = self.search_sources(cmd, operation_no)
       
       # if the control status is give, give the money to the cached data PROVIDED that the operation did not fail
       if self.control == ControlStatus.GIVE and result[0] != DataStatus.FAIL:
@@ -154,6 +128,40 @@ class MasterNode:
     [ds.terminate() for ds in self.sources]
     
     return
+  
+  def search_sources(self, cmd: Tuple, operation_no: int) -> Tuple:
+    
+    result: Tuple = (DataStatus.FAIL, )
+    
+    # check every source, terminate if there's an exact match
+    for source in self.sources:
+      
+      temp = source.find(cmd[1]) if self.control == ControlStatus.GIVE else source.query(cmd[1])
+      
+      # if the result from a slave node was not a FAIL, cache the result in the data since we destroy the original slave data no matter what
+      if source != self.sources[0] and temp[0] != DataStatus.FAIL:
+        if self.control == ControlStatus.GIVE:
+          self.cache_record(temp[1], temp[2])
+        else:
+          self.cache_record(cmd[1], temp[1])
+      
+      print(f"#:{operation_no} source {source} found {temp}")
+      
+      assert isinstance(temp, Tuple)
+      assert isinstance(result, Tuple)
+      
+      # if the temporary result is already OK, accept it and carry on
+      if (temp[0] == DataStatus.CASE1 and self.control == ControlStatus.GIVE) or (temp[0] == DataStatus.OK and self.control == ControlStatus.QUERY):
+        result = temp
+        break
+      
+      # if the temporary result is 'better' than the current result (*both of them must be CASEx results*)
+      if temp[0] in range(30, 35) and result[0] in range(30, 35):
+        result = temp if temp[0].value < result[0].value else result
+      
+      result = self.better_result(result, temp)
+      
+    return result
   
   # return the best result tuple from the input result tuples
   def better_result(self, tup1: Tuple, tup2: Tuple) -> Tuple:
