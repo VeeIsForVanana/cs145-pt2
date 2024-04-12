@@ -44,11 +44,11 @@ class SybilSystem:
     self.control = new_control
     
   # interpret the results of a given command on an id
-  def interpret_result(self, controlStatus: ControlStatus, dataStatus: DataStatus, id: int, bound: int | None):
-    return self.interpret_give(id) if self.control == ControlStatus.GIVE else self.interpret_query(id)
+  def interpret_result(self, dataStatus: DataStatus, id: int, bounds: int | None):
+    return self.interpret_give(dataStatus, id, bounds) if self.control == ControlStatus.GIVE else self.interpret_query(dataStatus, id)
   
   def interpret_give(self, dataStatus: DataStatus, id: int, bounds: int | None):
-    match DataStatus:
+    match dataStatus:
       
       # mark the id white
       case DataStatus.CASE1:
@@ -70,7 +70,7 @@ class SybilSystem:
         [self.mark_black(i) for i in range(id - 100, id)]
   
   def interpret_query(self, dataStatus: DataStatus, id: int):
-    match DataStatus:
+    match dataStatus:
       case DataStatus.OK:
         self.mark_white(id)
       case DataStatus.FAIL:
@@ -114,7 +114,7 @@ class MasterNode:
       
       print(f"### OPERATION {operation_no}: {cmd} ###", file=sys.stderr)
       
-      result = self.search_sources(cmd, operation_no)
+      result = self.search_sources(cmd, operation_no) if self.sybil.predict_id(cmd[1]) else (DataStatus.FAIL, )
       
       # if the control status is give, give the money to the cached data PROVIDED that the operation did not fail
       if self.control == ControlStatus.GIVE and result[0] != DataStatus.FAIL:
@@ -137,6 +137,9 @@ class MasterNode:
     for source in self.sources:
       
       temp = source.find(cmd[1]) if self.control == ControlStatus.GIVE else source.query(cmd[1])
+      
+      # have the sybil interpret the result to learn
+      self.sybil.interpret_result(temp[0], cmd[1], temp[1] if (self.control == ControlStatus.GIVE and temp[0] != DataStatus.FAIL) else None)
       
       # if the result from a slave node was not a FAIL, cache the result in the data since we destroy the original slave data no matter what
       if source != self.sources[0] and temp[0] != DataStatus.FAIL:
