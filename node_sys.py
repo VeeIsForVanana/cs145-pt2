@@ -195,7 +195,7 @@ class SlaveNode:
 
 
 # this class is a node subsystem that will use data gathered from MasterNode's results to predict the results of future queries without needing to refer to 
-#   other sources
+#   actual data sources
 class SybilSystem:
   
   record: dict[int, SybilStatus]
