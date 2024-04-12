@@ -80,7 +80,7 @@ class SybilSystem:
   # predict the results of a given command on a given id (FALSE = not worth trying, do not proceed; TRUE = worth trying, proceed)
   def predict_id(self, operation_no: int, id: int) -> bool:
     dream = self.predict_give(id) if self.control == ControlStatus.GIVE else self.predict_query(id)
-    print(f"#: {operation_no} > IT WAS REVEALED TO ME IN A DREAM: {dream}", file=sys.stderr)
+    print(f"#:{operation_no} > IT WAS REVEALED TO ME IN A DREAM: {dream}", file=sys.stderr)
     return dream
   
   # check if ANY value in the checking range is not black, if so proceed; if not preemptively fail
