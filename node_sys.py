@@ -94,7 +94,7 @@ class SybilSystem:
   # terminate and show a copy of the records for post-mortem
   def terminate(self):
     print("~~~ DELPHI BURNS | MY JOB IS FINISHED | APOLLO CALLS ME HOME ~~~", file=sys.stderr)
-    [print(f"{key}: {val}", file=sys.stderr) for (key, val) in list(self.record.items())]
+    # [print(f"{key}: {val}", file=sys.stderr) for (key, val) in list(self.record.items())]
 
 
 class MasterNode:
