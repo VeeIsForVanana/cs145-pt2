@@ -20,7 +20,7 @@ from cs145lib.task2.utils import Employee
 from cs145lib.task2 import Channel
 from data_sys import DataStatus, DataSystem
 from typing import List, Sequence, Tuple
-from status import ControlStatus, CommStatus
+from status import ControlStatus, CommStatus, SybilStatus
 
 
 class MasterNode:
@@ -131,7 +131,7 @@ class SlaveDriver(DataSystem):
     self.comms = CommSystem(chan, CommStatus.CMD, CommStatus.DAT)
 
   # drive the node to execute the find command
-  def find(self, id: int) -> Tuple[DataStatus] | Tuple[DataStatus, int]:
+  def find(self, id: int) -> Tuple[DataStatus] | Tuple[DataStatus, int, int]:
     self.comms.set_control(ControlStatus.FIND)
     self.comms.send( (ControlStatus.FIND, id) )
     return self.comms.receive()
@@ -193,3 +193,19 @@ class SlaveNode:
   def set_control(self, new_control: ControlStatus):
     self.control = new_control
 
+
+# this class is a node subsystem that will use data gathered from MasterNode's results to predict the results of future queries without needing to refer to 
+#   other sources
+class SybilSystem:
+  
+  record: dict[int, SybilStatus]
+  
+  def __init__(self) -> None:
+    
+    # initialize records as GREY
+    self.record = dict([(i, SybilStatus.GREY) for i in range(1, 65535 + 1)])
+    
+  def interpret_result(result: Tuple[DataStatus, int]):
+    pass
+  
+  def predict_id(control)

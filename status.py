@@ -18,3 +18,7 @@ class CommStatus(Enum):
   DAT = 2
   SUB = 3
   
+class SybilStatus(Enum):
+  BLCK = -1
+  GREY =  0
+  WHTE =  1
