@@ -32,7 +32,7 @@ class SybilSystem:
   def __init__(self) -> None:
     
     # initialize records as GREY
-    self.record = dict([(i, SybilStatus.GREY) for i in range(1, 65535 + 1)])
+    self.record = dict([(i, SybilStatus.GREY) for i in range(65535 + 1)])
     
   def mark_white(self, id: int):
     self.record[id] = SybilStatus.WHTE
@@ -62,12 +62,12 @@ class SybilSystem:
       # mark [id, id + 100] black and mark [bounds + 1, id] black
       case DataStatus.CASE3:
         self.mark_white(bounds)
-        [self.mark_black(i) for i in range(id, 100 + 1)]
+        [self.mark_black(i) for i in range(id, min(id + 100 + 1, 65535))]
         [self.mark_black(i) for i in range(bounds + 1, id)]
         
       case DataStatus.FAIL:
-        [self.mark_black(i) for i in range(id, 100 + 1)]
-        [self.mark_black(i) for i in range(id - 100, id)]
+        [self.mark_black(i) for i in range(id, min(id + 100 + 1, 65535))]
+        [self.mark_black(i) for i in range(max(id - 100, 0), id)]
   
   def interpret_query(self, dataStatus: DataStatus, id: int):
     match dataStatus:
@@ -77,16 +77,18 @@ class SybilSystem:
         self.mark_black(id)
   
   # predict the results of a given command on a given id (FALSE = not worth trying, do not proceed; TRUE = worth trying, proceed)
-  def predict_id(self, id: int) -> bool:
-    return self.predict_give(id) if self.control == ControlStatus.GIVE else self.predict_query(id)
+  def predict_id(self, operation_no: int, id: int) -> bool:
+    dream = self.predict_give(id) if self.control == ControlStatus.GIVE else self.predict_query(id)
+    print(f"#: {operation_no} > IT WAS REVEALED TO ME IN A DREAM: {dream}", file=sys.stderr)
+    return dream
   
   # check if ANY value in the checking range is not black, if so proceed; if not preemptively fail
   def predict_give(self, id: int) -> bool:
-    return any([self.record[i] != SybilStatus.BLCK for i in range(id - 100, id + 100 + 1)])
+    return any([self.record[i] != SybilStatus.BLCK for i in range(max(id - 100, 0), min(id + 100 + 1, 65535))])
   
   # check if the id itself is black
   def predict_query(self, id: int) -> bool:
-    return self.record[id] == SybilStatus.BLCK
+    return self.record[id] != SybilStatus.BLCK
 
 
 class MasterNode:
@@ -114,7 +116,7 @@ class MasterNode:
       
       print(f"### OPERATION {operation_no}: {cmd} ###", file=sys.stderr)
       
-      result = self.search_sources(cmd, operation_no) if self.sybil.predict_id(cmd[1]) else (DataStatus.FAIL, )
+      result = self.search_sources(cmd, operation_no) if self.sybil.predict_id(operation_no, cmd[1]) else (DataStatus.FAIL, )
       
       # if the control status is give, give the money to the cached data PROVIDED that the operation did not fail
       if self.control == ControlStatus.GIVE and result[0] != DataStatus.FAIL:
