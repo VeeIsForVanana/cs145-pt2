@@ -36,9 +36,10 @@ class SybilSystem:
     
   def mark_white(self, id: int):
     self.record[id] = SybilStatus.WHTE
-    
+  
+  # only mark black if the record was not white prior
   def mark_black(self, id: int):
-    self.record[id] = SybilStatus.BLCK
+    self.record[id] = SybilStatus.BLCK if self.record[id] != SybilStatus.WHTE else SybilStatus.WHTE
     
   def set_control(self, new_control: ControlStatus):
     self.control = new_control
@@ -89,6 +90,11 @@ class SybilSystem:
   # check if the id itself is black
   def predict_query(self, id: int) -> bool:
     return self.record[id] != SybilStatus.BLCK
+  
+  # terminate and show a copy of the records for post-mortem
+  def terminate(self):
+    print("~~~ DELPHI BURNS | MY JOB IS FINISHED | APOLLO CALLS ME HOME ~~~", file=sys.stderr)
+    [print(f"{key}: {val}", file=sys.stderr) for (key, val) in list(self.record.items())]
 
 
 class MasterNode:
@@ -128,6 +134,7 @@ class MasterNode:
       
     # upon completion of operations, terminate all DataSystems
     [ds.terminate() for ds in self.sources]
+    self.sybil.terminate()
     
     return
   
@@ -139,9 +146,6 @@ class MasterNode:
     for source in self.sources:
       
       temp = source.find(cmd[1]) if self.control == ControlStatus.GIVE else source.query(cmd[1])
-      
-      # have the sybil interpret the result to learn
-      self.sybil.interpret_result(temp[0], cmd[1], temp[1] if (self.control == ControlStatus.GIVE and temp[0] != DataStatus.FAIL) else None)
       
       # if the result from a slave node was not a FAIL, cache the result in the data since we destroy the original slave data no matter what
       if source != self.sources[0] and temp[0] != DataStatus.FAIL:
@@ -165,7 +169,10 @@ class MasterNode:
         result = temp if temp[0].value < result[0].value else result
       
       result = self.better_result(result, temp)
-      
+    
+    # have the sybil interpret the result to learn
+    self.sybil.interpret_result(result[0], cmd[1], result[1] if (self.control == ControlStatus.GIVE and result[0] != DataStatus.FAIL) else None)
+    
     return result
   
   # return the best result tuple from the input result tuples
