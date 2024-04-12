@@ -199,13 +199,21 @@ class SlaveNode:
 class SybilSystem:
   
   record: dict[int, SybilStatus]
+  control: ControlStatus
   
   def __init__(self) -> None:
     
     # initialize records as GREY
     self.record = dict([(i, SybilStatus.GREY) for i in range(1, 65535 + 1)])
     
-  def interpret_result(result: Tuple[DataStatus, int]):
+  def set_control(self, new_control: ControlStatus):
+    self.control = new_control
+    
+  # interpret the results of a given command on an id
+  def interpret_result(self, controlStatus: ControlStatus, dataStatus: DataStatus, id: int, bound: int | None):
     pass
   
-  def predict_id(control)
+  
+  # predict the results of a given command on a given id
+  def predict_id(self, control: ControlStatus, id: int):
+    pass
